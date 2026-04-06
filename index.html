@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invisible Music System - Gesture Controlled Audio Interface</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-1: #05060f;
+      --bg-2: #0c1022;
+      --card: rgba(16, 25, 46, 0.52);
+      --card-line: rgba(132, 164, 255, 0.28);
+      --txt: #eaf1ff;
+      --muted: #9db0da;
+      --cyan: #4ef5ff;
+      --purple: #9d7cff;
+      --blue: #4c74ff;
+      --glow-cyan: 0 0 24px rgba(78, 245, 255, 0.45);
+      --glow-purple: 0 0 28px rgba(157, 124, 255, 0.45);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--txt);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(78, 245, 255, 0.18), transparent 35%),
+        radial-gradient(circle at 88% 85%, rgba(157, 124, 255, 0.20), transparent 36%),
+        linear-gradient(150deg, var(--bg-1), var(--bg-2));
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .particle-layer, .wave-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -2;
+    }
+
+    .particle-layer::before, .particle-layer::after {
+      content: "";
+      position: absolute;
+      inset: -20%;
+      background:
+        radial-gradient(circle, rgba(78, 245, 255, 0.6) 1px, transparent 1.5px) 0 0 / 55px 55px,
+        radial-gradient(circle, rgba(157, 124, 255, 0.55) 1px, transparent 1.5px) 30px 20px / 70px 70px;
+      opacity: 0.14;
+      animation: drift 28s linear infinite;
+    }
+
+    .particle-layer::after {
+      animation-duration: 36s;
+      transform: scale(1.1);
+      opacity: 0.10;
+      filter: blur(0.4px);
+    }
+
+    .wave-layer::before {
+      content: "";
+      position: absolute;
+      left: -20%;
+      right: -20%;
+      bottom: -120px;
+      height: 320px;
+      background:
+        radial-gradient(closest-side, rgba(78, 245, 255, 0.20), transparent 72%) 0 0 / 420px 180px repeat-x,
+        radial-gradient(closest-side, rgba(157, 124, 255, 0.18), transparent 74%) 200px 40px / 460px 180px repeat-x;
+      animation: waveShift 14s linear infinite;
+      filter: blur(8px);
+      opacity: 0.8;
+    }
+
+    .container {
+      width: min(1180px, 92%);
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      backdrop-filter: blur(8px);
+      background: rgba(7, 10, 20, 0.46);
+      border-bottom: 1px solid rgba(136, 166, 255, 0.14);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+
+    .brand-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(45deg, var(--cyan), var(--purple));
+      box-shadow: var(--glow-cyan), var(--glow-purple);
+    }
+
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      margin-left: 18px;
+      font-weight: 500;
+      transition: all 0.25s ease;
+    }
+
+    nav a:hover {
+      color: var(--txt);
+      text-shadow: 0 0 14px rgba(157, 124, 255, 0.5);
+    }
+
+    .hero {
+      min-height: 88vh;
+      display: grid;
+      gap: 34px;
+      grid-template-columns: 1.05fr 0.95fr;
+      align-items: center;
+      padding: 40px 0 46px;
+    }
+
+    .hero h1 {
+      margin: 10px 0 10px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(2.2rem, 5.4vw, 4rem);
+      line-height: 1.05;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(78, 245, 255, 0.45);
+      background: rgba(78, 245, 255, 0.08);
+      color: var(--cyan);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .hero p {
+      color: var(--muted);
+      line-height: 1.75;
+      max-width: 620px;
+    }
+
+    .cta {
+      margin-top: 20px;
+      border: 0;
+      color: #041126;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 13px 24px;
+      border-radius: 12px;
+      background: linear-gradient(45deg, var(--cyan), var(--purple));
+      box-shadow: var(--glow-cyan);
+      cursor: pointer;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .cta:hover {
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: 0 0 30px rgba(78, 245, 255, 0.55), 0 0 32px rgba(157, 124, 255, 0.35);
+    }
+
+    .glass {
+      background: var(--card);
+      border: 1px solid var(--card-line);
+      border-radius: var(--radius);
+      backdrop-filter: blur(11px);
+      box-shadow: 0 8px 30px rgba(4, 8, 22, 0.4);
+    }
+
+    .hero-card {
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      right: -90px;
+      top: -90px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(78, 245, 255, 0.32), transparent 70%);
+    }
+
+    .equalizer {
+      margin-top: 14px;
+      height: 72px;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .equalizer i {
+      flex: 1;
+      border-radius: 6px 6px 0 0;
+      background: linear-gradient(180deg, var(--cyan), var(--blue), var(--purple));
+      transform-origin: bottom;
+      animation: pulse 1s ease-in-out infinite;
+      box-shadow: 0 0 12px rgba(78, 245, 255, 0.45);
+    }
+
+    .status-grid {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .status-item {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(126, 157, 255, 0.27);
+      background: rgba(12, 19, 38, 0.62);
+    }
+
+    .status-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-bottom: 6px;
+    }
+
+    .status-item strong {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.05rem;
+      color: #f4f7ff;
+    }
+
+    section {
+      padding: 24px 0;
+    }
+
+    .section-title {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(1.45rem, 2.2vw, 2rem);
+      margin-bottom: 8px;
+    }
+
+    .section-sub {
+      margin-top: 0;
+      margin-bottom: 18px;
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.7;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      padding: 16px;
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(78, 245, 255, 0.52);
+      box-shadow: 0 10px 24px rgba(6, 10, 28, 0.42), 0 0 16px rgba(78, 245, 255, 0.2);
+    }
+
+    .card h3 {
+      margin: 2px 0 8px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.03rem;
+    }
+
+    .card p, .card li {
+      color: var(--muted);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .steps {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .step {
+      padding: 18px;
+      text-align: center;
+      position: relative;
+    }
+
+    .icon {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 10px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(78, 245, 255, 0.12);
+      border: 1px solid rgba(78, 245, 255, 0.46);
+      color: var(--cyan);
+      font-size: 1.2rem;
+      box-shadow: var(--glow-cyan);
+    }
+
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -7px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(78, 245, 255, 0.55), rgba(157, 124, 255, 0.55));
+    }
+
+    .demo-box {
+      min-height: 260px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .demo-box::before {
+      content: "";
+      position: absolute;
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle, rgba(157, 124, 255, 0.28), transparent 65%);
+      animation: orbit 10s linear infinite;
+    }
+
+    .demo-inner {
+      position: relative;
+      z-index: 2;
+      width: min(520px, 88%);
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px dashed rgba(154, 183, 255, 0.4);
+      background: rgba(7, 11, 25, 0.45);
+    }
+
+    .list {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    footer {
+      margin-top: 14px;
+      border-top: 1px solid rgba(136, 166, 255, 0.16);
+      text-align: center;
+      color: var(--muted);
+      padding: 20px 0 34px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.75s ease, transform 0.75s ease;
+    }
+
+    .reveal.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scaleY(0.28); }
+      50% { transform: scaleY(1); }
+    }
+    @keyframes drift {
+      from { transform: translateY(0); }
+      to { transform: translateY(55px); }
+    }
+    @keyframes waveShift {
+      from { transform: translateX(0); }
+      to { transform: translateX(-220px); }
+    }
+    @keyframes orbit {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 980px) {
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        padding-top: 28px;
+      }
+      .grid-4, .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-3 { grid-template-columns: 1fr; }
+      nav { display: none; }
+    }
+
+    @media (max-width: 620px) {
+      .grid-4, .steps { grid-template-columns: 1fr; }
+      .step::after { display: none; }
+      .status-grid { grid-template-columns: 1fr; }
+      .topbar-inner { padding: 12px 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="particle-layer"></div>
+  <div class="wave-layer"></div>
+
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span>Invisible Music System</span>
+      </div>
+      <nav>
+        <a href="#about">About</a>
+        <a href="#features">Features</a>
+        <a href="#workflow">How It Works</a>
+        <a href="#demo">Live Demo</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero reveal">
+      <div>
+        <span class="tag">ESP8266 | Gesture Audio Interface</span>
+        <h1>Invisible Music System</h1>
+        <p>
+          Control Music with Hand Gestures. A premium touchless interface that combines ultrasonic sensing,
+          real-time processing, and immersive feedback through OLED visualization and dynamic buzzer output.
+        </p>
+        <button class="cta" onclick="document.getElementById('about').scrollIntoView({behavior:'smooth'})">
+          Explore Project
+        </button>
+      </div>
+
+      <div class="glass hero-card">
+        <h3 style="margin:0;font-family:'Space Grotesk',sans-serif;">Live System Snapshot</h3>
+        <p style="margin:8px 0 0;color:var(--muted)">Realtime simulation inspired by your embedded logic.</p>
+        <div class="equalizer" id="equalizer"></div>
+        <div class="status-grid">
+          <div class="status-item"><span>Mode</span><strong id="modeTxt">Mode 1</strong></div>
+          <div class="status-item"><span>Distance</span><strong id="distTxt">14 cm</strong></div>
+          <div class="status-item"><span>Volume</span><strong id="volTxt">1200 Hz</strong></div>
+          <div class="status-item"><span>Status</span><strong id="stateTxt">Active</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="reveal">
+      <h2 class="section-title">About Project</h2>
+      <p class="section-sub">
+        This project introduces a touchless control experience using an ultrasonic sensor connected to ESP8266.
+        Hand gestures are translated into commands for audio mode switching and volume control, enabling safe and
+        intuitive interaction in smart spaces, assistive systems, and modern IoT environments.
+      </p>
+      <div class="glass card">
+        <p>
+          The innovation lies in combining low-cost embedded hardware with a futuristic interface:
+          users interact naturally, while the system instantly responds through OLED updates and buzzer tones.
+        </p>
+      </div>
+    </section>
+
+    <section id="features" class="reveal">
+      <h2 class="section-title">Features</h2>
+      <div class="grid-3">
+        <article class="glass card"><h3>Gesture Control</h3><p>Contactless hand motion controls core audio actions.</p></article>
+        <article class="glass card"><h3>OLED Display Interface</h3><p>Live feedback of mode, volume, and sensor distance.</p></article>
+        <article class="glass card"><h3>Real-time Distance Detection</h3><p>Fast ultrasonic sensing for immediate response.</p></article>
+        <article class="glass card"><h3>Multiple Sound Modes</h3><p>Dynamic buzzer tones with mode-based behavior.</p></article>
+        <article class="glass card"><h3>Embedded System Design</h3><p>Efficient logic built with ESP8266 and Arduino ecosystem.</p></article>
+        <article class="glass card"><h3>Interactive UI Effects</h3><p>Animated waveform and responsive micro-interactions.</p></article>
+      </div>
+    </section>
+
+    <section id="workflow" class="reveal">
+      <h2 class="section-title">How It Works</h2>
+      <div class="steps">
+        <article class="glass step">
+          <div class="icon">✋</div>
+          <h3>Hand Gesture</h3>
+          <p>Gesture is performed near the sensor.</p>
+        </article>
+        <article class="glass step">
+          <div class="icon">📡</div>
+          <h3>Sensor Detection</h3>
+          <p>HC-SR04 measures real-time distance.</p>
+        </article>
+        <article class="glass step">
+          <div class="icon">⚙</div>
+          <h3>ESP Processing</h3>
+          <p>ESP8266 maps zones to commands.</p>
+        </article>
+        <article class="glass step">
+          <div class="icon">🔊</div>
+          <h3>OLED + Buzzer</h3>
+          <p>System outputs visual and audio feedback.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="reveal">
+      <h2 class="section-title">Components Used</h2>
+      <div class="grid-4">
+        <article class="glass card"><h3>ESP8266 (ESP-12E)</h3><p>Main controller and processing unit.</p></article>
+        <article class="glass card"><h3>Ultrasonic Sensor (HC-SR04)</h3><p>Distance measurement for gesture inputs.</p></article>
+        <article class="glass card"><h3>OLED Display (SSD1306)</h3><p>System status and visual UI feedback.</p></article>
+        <article class="glass card"><h3>Buzzer</h3><p>Audio output with variable tone frequencies.</p></article>
+      </div>
+    </section>
+
+    <section id="demo" class="reveal">
+      <h2 class="section-title">Live Demo</h2>
+      <p class="section-sub">Replace this placeholder with your project video, GIF, or simulation capture.</p>
+      <div class="glass demo-box">
+        <div class="demo-inner">
+          <h3 style="margin-top:0;font-family:'Space Grotesk',sans-serif;">Demo Placeholder</h3>
+          <p style="color:var(--muted);margin-bottom:0;">Embed YouTube iframe or add your recorded demo animation here.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="reveal">
+      <h2 class="section-title">Tech Stack</h2>
+      <div class="grid-3">
+        <article class="glass card"><h3>Embedded C (Arduino IDE)</h3><p>Core firmware and control logic.</p></article>
+        <article class="glass card"><h3>IoT Concepts</h3><p>Touchless interaction and smart automation design.</p></article>
+        <article class="glass card"><h3>Sensor Integration</h3><p>Ultrasonic sensing with responsive hardware output.</p></article>
+      </div>
+    </section>
+
+    <section class="reveal">
+      <h2 class="section-title">Future Scope</h2>
+      <div class="glass card">
+        <ul class="list">
+          <li>Bluetooth music control for mobile integration</li>
+          <li>WiFi-based audio streaming capabilities</li>
+          <li>LED music visualizer with beat-synced effects</li>
+          <li>AI-powered gesture recognition for smarter control</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Building Smart Systems with Innovation
+  </footer>
+
+  <script>
+    const equalizer = document.getElementById("equalizer");
+    const modeTxt = document.getElementById("modeTxt");
+    const distTxt = document.getElementById("distTxt");
+    const volTxt = document.getElementById("volTxt");
+    const stateTxt = document.getElementById("stateTxt");
+    const states = ["Active", "Scanning", "Listening", "Processing"];
+    let mode = 1;
+    let volume = 1200;
+    let distance = 14;
+
+    for (let i = 0; i < 20; i++) {
+      const bar = document.createElement("i");
+      bar.style.height = `${18 + Math.random() * 82}%`;
+      bar.style.animationDelay = `${Math.random() * 0.8}s`;
+      equalizer.appendChild(bar);
+    }
+
+    function stepSimulation() {
+      const change = Math.floor(Math.random() * 3) - 1;
+      distance = Math.min(30, Math.max(4, distance + change));
+
+      if (distance < 8) mode = (mode % 4) + 1;
+      else if (distance < 15) volume = Math.min(3000, volume + 40);
+      else if (distance < 25) volume = Math.max(200, volume - 30);
+
+      modeTxt.textContent = `Mode ${mode}`;
+      distTxt.textContent = `${distance} cm`;
+      volTxt.textContent = `${volume} Hz`;
+      stateTxt.textContent = states[Math.floor(Math.random() * states.length)];
+
+      [...equalizer.children].forEach((bar) => {
+        bar.style.height = `${18 + Math.random() * 82}%`;
+      });
+    }
+
+    setInterval(stepSimulation, 900);
+    stepSimulation();
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add("show");
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
+  </script>
+</body>
+</html>
